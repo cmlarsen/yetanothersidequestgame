@@ -1,0 +1,7 @@
+KayKit Adventurers 2.0 (FREE) and KayKit Skeletons 1.1 (FREE) by Kay Lousberg (kaylousberg.com).
+CC0 licensed — free for personal and commercial use, no attribution required.
+Character GLBs carry the Rig_Medium skeleton; anim_movement.glb / anim_general.glb hold the shared
+animation library (clips retarget onto any Rig_Medium character by bone name).
+
+KayKit Medieval Hexagon Pack 1.0 (FREE) by Kay Lousberg — CC0. Subset staged under models/hex/
+(hex terrain tiles, nature décor, POI props) for the perspective 3D map.

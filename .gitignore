@@ -1,0 +1,16 @@
+# Godot
+game/.godot/
+game/android/
+game/ios/
+
+# Export presets can carry signing identities / provisioning info — add a
+# scrubbed version deliberately if we want it in git.
+game/export_presets.cfg
+
+# Node (server/, tools/)
+node_modules/
+dist/
+
+# OS / editor noise
+.DS_Store
+*.tmp
