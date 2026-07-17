@@ -70,7 +70,15 @@ const ON_PARCHMENT_MUTED := Color("#6b5518")
 const TURF_PLAYER := Color("#27d3f5")
 const TURF_GLOOM := Color(150.0 / 255.0, 80.0 / 255.0, 1.0, 0.28)
 
-# ── Text helpers ────────────────────────────────────────────────────────────
+# ── Hot bar slots ───────────────────────────────────────────────────────────
+const SLOT_GRAD_TOP := Color("#31405f")
+const SLOT_GRAD_BOTTOM := Color("#1c2438")
+const SLOT_BORDER := Color("#45607f")
+const SLOT_SHADOW := Color("#0d1220")
+
+# ── Text ────────────────────────────────────────────────────────────────────
+const TEXT_DIM := Color("#5d6a85")
+
 static func white(alpha: float) -> Color:
 	return Color(1.0, 1.0, 1.0, alpha)
 

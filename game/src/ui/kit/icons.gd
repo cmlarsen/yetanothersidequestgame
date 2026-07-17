@@ -56,6 +56,12 @@ const _ICONS: Dictionary = {
 	"sparkle": '<path d="M12 4l1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8z" stroke-linejoin="round"/><path d="M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
 	"couch": '<path d="M5 10V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v2"/><path d="M3 12a2 2 0 0 1 4 0v1h10v-1a2 2 0 0 1 4 0v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M5 17v2M19 17v2"/>',
 	"repair": '<path d="M14.5 6.5a4 4 0 0 0-5.4 5L4 16.6a1.6 1.6 0 0 0 0 2.3l1.1 1.1a1.6 1.6 0 0 0 2.3 0l5.1-5.1a4 4 0 0 0 5-5.4l-2.8 2.8-2.4-2.4z" stroke-linejoin="round"/>',
+	# Gloomling mushroom, path copied verbatim from the mock chunks (15/11/22
+	# all use the two-eyed body; the eyes read as holes via nonzero winding).
+	"shroom": '<FILL><path d="M12 2C7 2 3.5 5.8 3.5 10.5c0 2.6 1.2 4.7 3 6v3c0 .8.7 1.5 1.5 1.5h1v-2h2v2h2v-2h2v2h1c.8 0 1.5-.7 1.5-1.5v-3c1.8-1.3 3-3.4 3-6C20.5 5.8 17 2 12 2zm-4 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>',
+	"shroom_plain": '<FILL><path d="M12 2C7 2 3.5 5.8 3.5 10.5c0 2.6 1.2 4.7 3 6v3c0 .8.7 1.5 1.5 1.5h1v-2h2v2h2v-2h2v2h1c.8 0 1.5-.7 1.5-1.5v-3c1.8-1.3 3-3.4 3-6C20.5 5.8 17 2 12 2z"/>',
+	"bolt": '<path d="M13 3L5 13h5l-1 8 8-11h-5z" stroke-linejoin="round"/>',
+	"sword_slash": '<path d="M9 15L4 20M9 15l9.5-11 2.5 2.5L10 16z" stroke-linejoin="round"/><path d="M14 4l6 6"/>',
 }
 
 
