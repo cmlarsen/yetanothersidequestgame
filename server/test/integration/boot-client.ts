@@ -14,7 +14,7 @@ const port = process.env.PORT ?? '8080';
 const lat = Number(process.env.ORIGIN_LAT ?? 37.7749);
 const lng = Number(process.env.ORIGIN_LNG ?? -122.4194);
 
-const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+const ws = new WebSocket(process.env.WS_URL ?? `ws://127.0.0.1:${port}/ws`);
 const t = (): number => Date.now();
 const send = (msg: object): void => ws.send(JSON.stringify(msg));
 
