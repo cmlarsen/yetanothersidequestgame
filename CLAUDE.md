@@ -64,6 +64,9 @@ Full commitment to Godot happens only after both pass.
   in spike phase and record it here; the shell currently uses two plain
   headless scripts, not a framework). CI on Linux; iOS archive/TestFlight
   on a macOS runner.
+- **Launching**: `./play` (deployed server) · `./play local` (boots/reuses a
+  local server, world persists in `server/data-dev`) · `./play offline` ·
+  `./play walk` (autowalk demo) · `./play screen <id>`. WASD to walk.
 - **Shell verification loop**: `tools/dev/check.sh` (headless smoke over
   every route + `game/tests/data_sanity.gd`) must pass before commit;
   `tools/dev/shoot.sh <dir> [route,…]` screenshots screens for visual

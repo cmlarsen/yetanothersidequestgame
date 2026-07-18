@@ -14,3 +14,6 @@ dist/
 # OS / editor noise
 .DS_Store
 *.tmp
+
+# Local dev server world (./play local)
+server/data-dev/
