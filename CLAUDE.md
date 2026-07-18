@@ -7,10 +7,15 @@ lives in the archived `SideQuestAppV2` repo (reference mine, never copied
 wholesale). The stack decision and its rationale:
 `docs/REDESIGN-TECH-STACK.md`.
 
-## Status: pre-spike scaffold
+## Status: design shell built, spikes pending
 
-Nothing is built yet. First work is the two kill-criterion spikes from
-REDESIGN-TECH-STACK.md, in order:
+The **YAS v1.0 UI shell** exists: all 28 designed screens implemented in
+`game/src/ui/` against the handoff in `docs/design/yas-v1/` (the canonical
+spec — GAME-RULES.md, SCREENS.md, DATA-MODEL.md, and the `.dc.html` flow
+map). It runs desktop-first on fake data (`src/data/game_state.gd`); no
+GPS, server, or real 3D yet — 3D regions are dashed placeholders per the
+handoff. The two kill-criterion spikes from REDESIGN-TECH-STACK.md remain
+the next hard gates, in order:
 
 1. **GPS + battery** — minimal CoreLocation `.gdip` plugin (location +
    heading + authorization signals), trivial 3D scene, Instruments-measured
@@ -26,8 +31,15 @@ Full commitment to Godot happens only after both pass.
 - `game/` — the Godot 4.6 project (GDScript, **Mobile renderer**, A12+
   floor). Pin the exact engine version; upgrades are deliberate, tested
   events, never drive-by.
+- `game/src/` — the shell: `ui/screens/` (28 code-built screens, one file
+  per route), `ui/kit/` (shared components; API contract in its README),
+  `ui/tokens.gd` (all design tokens — never inline a tokened color),
+  `app/` (router + app shell w/ `--smoke`/`--autoshot` modes),
+  `data/` + `rules/` (fake state, content catalog, GAME-RULES constants).
 - `game/assets/models/` — KayKit GLBs (characters, weapons, hex/forest
   props) carried over from the prototype; licenses alongside.
+  `game/assets/ui/faces/` — face crops from the handoff (stand-ins for
+  live renders); `game/assets/fonts/` — Lilita One + Nunito (OFL).
 - `server/` — authoritative Node/TS game server (empty stub; architecture
   carries from the prototype: Fly.io, SQLite, versioned JSON WebSocket
   protocol, server-authoritative everything).
@@ -49,8 +61,18 @@ Full commitment to Godot happens only after both pass.
   classes with no Node/scene dependencies where feasible, so they run
   headless under test.
 - **Tests run headless**: `godot --headless` + gdUnit4 (or GUT — pick one
-  in spike phase and record it here). CI on Linux; iOS archive/TestFlight
+  in spike phase and record it here; the shell currently uses two plain
+  headless scripts, not a framework). CI on Linux; iOS archive/TestFlight
   on a macOS runner.
+- **Launching**: `./play` (deployed server) · `./play local` (boots/reuses a
+  local server, world persists in `server/data-dev`) · `./play offline` ·
+  `./play walk` (autowalk demo) · `./play screen <id>`. WASD to walk.
+- **Shell verification loop**: `tools/dev/check.sh` (headless smoke over
+  every route + `game/tests/data_sanity.gd`) must pass before commit;
+  `tools/dev/shoot.sh <dir> [route,…]` screenshots screens for visual
+  review against `docs/design/yas-v1/` mocks. After adding a script with
+  `class_name` or any asset, run `godot --headless --path game --import`
+  once to refresh caches.
 - **Port, don't invent, the geo layer**: the Kalman filter pipeline
   (`client-core/geo/filter.ts`), heading logic, and WebSocket
   reconnect/backoff design in the old repo are field-tested — translate

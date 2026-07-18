@@ -8,11 +8,21 @@ config_version=5
 
 config/name="SideQuest"
 config/features=PackedStringArray("4.6", "Mobile")
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/app.tscn"
+
+[autoload]
+
+GameState="*res://src/data/game_state.gd"
+Router="*res://src/app/router.gd"
+NetClient="*res://src/net/net_client.gd"
 
 [display]
 
+window/size/viewport_width=402
+window/size/viewport_height=874
 window/handheld/orientation=1
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
 
 [rendering]
 

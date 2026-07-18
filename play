@@ -1,0 +1,70 @@
+#!/bin/bash
+# play — launch SideQuest the easy way.
+#
+#   ./play              live: connect to the deployed server (yas-server.fly.dev)
+#   ./play walk         live + autowalk (claims a spiral on its own — demo mode)
+#   ./play local        boot/reuse a local server on :8399, connect to it
+#   ./play offline      the offline shell on fake data (mock-faithful screens)
+#   ./play screen <id>  open one screen directly, offline (e.g. ./play screen combat)
+#
+# Anything after the mode passes through to the app (e.g. ./play local --autowalk).
+# In live modes: walk with WASD/arrows, Shift to hustle.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+FLY_URL="wss://yas-server.fly.dev/ws"
+LOCAL_PORT=8399
+LOCAL_URL="ws://127.0.0.1:${LOCAL_PORT}/ws"
+
+command -v godot >/dev/null || { echo "godot not found on PATH"; exit 1; }
+
+ensure_local_server() {
+  if curl -sf --max-time 2 "http://127.0.0.1:${LOCAL_PORT}/healthz" >/dev/null 2>&1; then
+    echo "· local server already running on :${LOCAL_PORT}"
+    return
+  fi
+  mkdir -p server/data-dev
+  echo "· starting local server on :${LOCAL_PORT} (world persists in server/data-dev)"
+  # </dev/null matters: without it the server holds the caller's stdin/pipe
+  # open forever and `./play local | anything` never sees EOF.
+  (cd server && DATA_DIR=./data-dev PORT=$LOCAL_PORT nohup npm start >../server/data-dev/server.log 2>&1 </dev/null &)
+  for _ in $(seq 1 40); do
+    curl -sf --max-time 1 "http://127.0.0.1:${LOCAL_PORT}/healthz" >/dev/null 2>&1 && break
+    sleep 0.25
+  done
+  curl -sf --max-time 2 "http://127.0.0.1:${LOCAL_PORT}/healthz" >/dev/null \
+    || { echo "server failed to boot — see server/data-dev/server.log"; exit 1; }
+  echo "· server up (stop later with: pkill -f 'tsx main.ts')"
+}
+
+mode="${1:-live}"
+[ $# -gt 0 ] && shift
+
+case "$mode" in
+  live)
+    echo "· connecting to ${FLY_URL} (first connect may take ~5s while Fly wakes)"
+    echo "· WASD/arrows to walk, Shift to hustle"
+    exec godot --path game -- --server="$FLY_URL" "$@"
+    ;;
+  walk)
+    echo "· autowalk demo against ${FLY_URL}"
+    exec godot --path game -- --server="$FLY_URL" --autowalk "$@"
+    ;;
+  local)
+    ensure_local_server
+    echo "· WASD/arrows to walk, Shift to hustle"
+    exec godot --path game -- --server="$LOCAL_URL" "$@"
+    ;;
+  offline)
+    exec godot --path game -- --offline "$@"
+    ;;
+  screen)
+    id="${1:?usage: ./play screen <route_id>}"
+    shift
+    exec godot --path game -- --offline --screen="$id" "$@"
+    ;;
+  *)
+    echo "usage: ./play [live|walk|local|offline|screen <id>] [extra godot args]"
+    exit 1
+    ;;
+esac
