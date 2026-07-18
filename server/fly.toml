@@ -1,0 +1,38 @@
+# fly.toml — yas-server (DESIGN §Ops). ONE machine, ONE port: GET /healthz,
+# GET /status, and the /ws WebSocket gateway all ride http_service on 8080 (Fly
+# proxies WS upgrades). The mounted volume keeps world.db across restarts and
+# redeploys. WORLD_SEED / ORIGIN_LAT / ORIGIN_LNG are set via `fly secrets`.
+# Shape ported from the SideQuestAppV2 fly.toml.
+
+app = "yas-server"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  DATA_DIR = "/data"
+  TICK_HZ = "10"
+  AUTOSAVE_MS = "15000"
+
+[[mounts]]
+  source = "yas_data"             # persistent volume → world DB survives restarts/redeploys
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"  # scale-to-zero when idle; a wss reconnect wakes it
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "15s"
+    timeout = "2s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

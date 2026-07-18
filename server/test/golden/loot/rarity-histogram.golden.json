@@ -1,0 +1,40 @@
+{
+  "seed": "loot-golden",
+  "n": 100000,
+  "rarities": [
+    "common",
+    "rare",
+    "epic",
+    "legendary"
+  ],
+  "perTable": {
+    "chest": {
+      "counts": [
+        59707,
+        30344,
+        8930,
+        1019
+      ],
+      "proportions": [
+        0.59707,
+        0.30344,
+        0.0893,
+        0.01019
+      ]
+    },
+    "mob_drop": {
+      "counts": [
+        69833,
+        25190,
+        3964,
+        1013
+      ],
+      "proportions": [
+        0.69833,
+        0.2519,
+        0.03964,
+        0.01013
+      ]
+    }
+  }
+}

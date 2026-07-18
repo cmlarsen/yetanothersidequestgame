@@ -1,0 +1,9 @@
+# node_modules is rebuilt inside the build stage (npm ci) — the host's macOS-built
+# better-sqlite3 binary must never leak into the linux image.
+node_modules
+data
+test
+*.md
+.git
+*.log
+.DS_Store
