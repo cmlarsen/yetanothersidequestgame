@@ -133,6 +133,50 @@ func _init() -> void:
 	_check(catalog.mob(gs.combat["mob"])["level"] == 8, "Grumbleshroom is LV 8")
 	_check(gs.party.size() <= rules.PARTY_MAX, "party within max size")
 
+	# Server lock-step: the generated mirrors (tools/protocol-gen) agree with the
+	# shell. tuning.ts is the source of truth — a failure here means either drift
+	# in rules.gd or a stale generation (rerun the generator, then look closer).
+	var sp: GDScript = load("res://src/net/server_protocol.gd")
+	var st: GDScript = load("res://src/data/server_tuning.gd")
+	_check(sp.VERSION == 1, "ServerProtocol.VERSION == 1")
+	_check(sp.WS_PATH == "/ws", "ServerProtocol.WS_PATH == /ws")
+	var op_by_num: Dictionary = {}
+	for op_name in sp.OP:
+		var num: int = sp.OP[op_name]
+		_check(not op_by_num.has(num),
+			"OP number %d unique (%s vs %s)" % [num, op_name, op_by_num.get(num, "?")])
+		op_by_num[num] = op_name
+	var rule_consts: Dictionary = rules.get_script_constant_map()
+	var tuned: Dictionary = st.VALUES
+	# The load-bearing numbers must exist on BOTH sides (a rename would otherwise
+	# silently drop out of the equality sweep below)…
+	var lockstep_names: Array[String] = [
+		"HEX_SIZE_M", "GLOOM_HEXES_PER_FRONT_PER_HOUR", "FRONT_COMPLETION_GOLD",
+		"CRIT_BASE_PCT", "WEAK_MULTIPLIER", "RESIST_MULTIPLIER",
+		"REVIVE_COUNTDOWN_SEC", "REVIVE_RADIUS_M",
+		"CHEST_OPEN_RADIUS_M", "CHEST_NOTIFY_RADIUS_M",
+		"MOB_ITEM_DROP_PCT", "TYRANT_ITEM_DROP_PCT",
+		"LEVEL_UP_ATK", "LEVEL_UP_DEF", "LEVEL_UP_HP",
+		"POCKET_BLIZZARD_UNLOCK_LEVEL", "CAPE_UNLOCK_LEVEL",
+		"BONK_TURRET_COST", "CHILL_BELL_COST", "BASTION_POST_COST",
+		"TOWER_REPAIR_COST", "TOWER_UPGRADE_COST",
+		"MINION_HIRE_COST", "MINION_HEAL_COST",
+		"SPEED_PAUSE_KMH", "SHOP_SELL_PCT", "MYSTERY_BOX_COST",
+	]
+	for name in lockstep_names:
+		_check(rule_consts.has(name), "Rules declares %s" % name)
+		_check(tuned.has(name), "ServerTuning exports %s" % name)
+	# …and EVERY name shared by Rules and ServerTuning must agree exactly.
+	for name in tuned:
+		if rule_consts.has(name):
+			_check(rule_consts[name] == tuned[name],
+				"Rules.%s (%s) == ServerTuning (%s)" % [name, rule_consts[name], tuned[name]])
+	_check(st.XP_CURVE[0] == 100 and rules.xp_for_level(1) == st.XP_CURVE[0],
+		"xp curve level 1 locks to server")
+	_check(st.XP_CURVE[1] == 135 and rules.xp_for_level(2) == st.XP_CURVE[1],
+		"xp curve level 2 locks to server")
+	_check(rules.xp_for_level(13) == st.XP_CURVE[12], "xp curve level 13 locks to server")
+
 	gs.free()
 	if _failures.is_empty():
 		print("DATA SANITY PASS")
