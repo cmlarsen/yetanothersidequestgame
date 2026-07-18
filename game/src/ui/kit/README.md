@@ -76,7 +76,11 @@ sizes are fixed by args or content. Signals only where noted.
   `default_stroke`, `default_width`, plus `paths`
   (`{points: PackedVector2Array, width: float}` sand roads w/ edge color),
   `trees` (positions), `water` (`{center, radius}` blobs). Background grass is
-  the caller's `add_bg(Tokens.MAP_GRASS)`.
+  the caller's `add_bg(Tokens.MAP_GRASS)`. Live-world overlay: set
+  `px_per_m > 0` + `world_offset` to swap the lattice to the flat-top 60 m
+  server hex grid (screen = world_offset + (x, −y)·px_per_m) and feed `cells`
+  (`"q,r"` → `{fill, stroke, width[, dashed…]}`) — cells win over zones;
+  everything else falls back to the default (subtle-grid) style.
 - `MobBlob.make(diameter := 96, icon := "shroom") -> Control` — the purple
   radial Gloomling: radial-ish gradient, 4px GLOOM_BORDER, hard shadow,
   white icon. Bob via `Screen.bob`.

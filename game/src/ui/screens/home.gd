@@ -9,6 +9,9 @@ const _MOB_CHIP_BG := Color(Tokens.RARITY_EPIC_BOTTOM, 0.92)
 const _MAP_POS := Vector2(14, 129)
 const _MAP_SIZE := Vector2(374, 155)
 
+var _header_holder: Control
+var _card_chip_holder: Control
+
 
 func build() -> void:
 	add_bg(Tokens.BG_SCREEN)
@@ -17,7 +20,7 @@ func build() -> void:
 
 	var start := ChunkyButton.make("START RUN", "cta_cyan", Vector2(374, 54), 18)
 	UI.place(self, start, Vector2(14, 296))
-	start.pressed.connect(func() -> void: Router.go("exploration"))
+	start.pressed.connect(_on_start_run)
 
 	_build_quests()
 	_build_party()
@@ -26,22 +29,65 @@ func build() -> void:
 	UI.place(self, nav, Vector2(0, DESIGN_SIZE.y - BottomNav.HEIGHT))
 	nav.tab_selected.connect(_on_tab)
 
+	# Unconditional: offline sessions never emit, and a conditional check here
+	# races boot order (--screen=home builds before --server sets want_open).
+	GameState.live_changed.connect(_on_live_changed)
+	NetClient.status_changed.connect(func(_s: String) -> void: _rebuild_header())
+
+
+func _on_start_run() -> void:
+	if GameState.is_live:
+		NetClient.send_op(int(ServerProtocol.OP.RUN_START), {})
+		GameState.run_active = true
+	Router.go("exploration")
+
+
+## Header numbers + the map-card chips track the live apply layer; deltas are
+## position-only, so they're skipped.
+func _on_live_changed(what: String) -> void:
+	if what in ["hello", "snapshot", "inventory", "events", "level_up", "front", "shop"]:
+		_rebuild_header()
+		_rebuild_card_chips()
+
 
 func _build_header() -> void:
-	UI.place(self, AvatarFace.make(GameState.character_id, 49, Tokens.CYAN, 2.5),
+	_header_holder = Control.new()
+	_header_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.place(self, _header_holder, Vector2.ZERO)
+	_rebuild_header()
+
+
+func _rebuild_header() -> void:
+	if _header_holder == null:
+		return
+	for c in _header_holder.get_children():
+		c.queue_free()
+	UI.place(_header_holder, AvatarFace.make(GameState.character_id, 49, Tokens.CYAN, 2.5),
 		Vector2(16, 66))
 	var name_row := UI.hbox(5)
 	name_row.add_child(UI.display(GameState.player_name, 14))
 	name_row.add_child(UI.display("LV %d" % GameState.level, 14, Tokens.CYAN))
-	UI.place(self, name_row, Vector2(74, 76))
+	UI.place(_header_holder, name_row, Vector2(74, 76))
 	var xp := HBar.bar(110, 6, Tokens.CYAN, Tokens.GREEN_GRAD_TOP, 4.0,
 		GameState.xp / GameState.xp_next)
-	UI.place(self, xp, Vector2(74, 99))
+	UI.place(_header_holder, xp, Vector2(74, 99))
 
 	var gold := CurrencyPill.gold(GameState.gold)
-	UI.place(self, gold,
+	UI.place(_header_holder, gold,
 		Vector2(386.0 - gold.custom_minimum_size.x,
 			66.0 + (49.0 - gold.custom_minimum_size.y) / 2.0))
+
+	# Live-session status beat: a subtle chip left of the gold pill while the
+	# socket is anything but online (nothing renders offline or when healthy).
+	if (GameState.is_live or NetClient.want_open) and NetClient.status != "online":
+		var color := Tokens.WARNING if NetClient.status == "connecting" else Tokens.PINK
+		var chip := Chip.make(NetClient.status.to_upper(), {
+			"bg": Tokens.BG_CARD, "border": color, "border_w": 1.5, "radius": 8.0,
+			"text_color": color, "font": "micro", "font_size": 8, "pad_h": 8.0, "pad_v": 3.0,
+		})
+		UI.place(_header_holder, chip,
+			Vector2(386.0 - gold.custom_minimum_size.x - chip.custom_minimum_size.x - 8.0,
+				66.0 + (49.0 - chip.custom_minimum_size.y) / 2.0))
 
 
 func _build_map_card() -> void:
@@ -83,17 +129,28 @@ func _build_map_card() -> void:
 	border.corner_radius = 20.0
 	UI.fill(card, border)
 
+	_card_chip_holder = Control.new()
+	_card_chip_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.place(card, _card_chip_holder, Vector2.ZERO)
+	_rebuild_card_chips()
+
+
+func _rebuild_card_chips() -> void:
+	if _card_chip_holder == null or GameState.fronts.is_empty():
+		return
+	for c in _card_chip_holder.get_children():
+		c.queue_free()
 	var front: Dictionary = GameState.fronts[0]
 	var front_chip := Chip.make("%s · %d%% YOURS" % [String(front["name"]).to_upper(),
 		int(front["pct_player"])], {
 		"text_color": Tokens.CYAN_LIGHT, "bg": _CHIP_SCRIM, "border_w": 0.0,
 		"radius": 9.0, "pad_h": 9.0, "pad_v": 4.0,
 	})
-	UI.place(card, front_chip, Vector2(12, 12))
+	UI.place(_card_chip_holder, front_chip, Vector2(12, 12))
 	var mob_chip := Chip.make("%d MOBS ACTIVE" % GameState.mobs_active, {
 		"bg": _MOB_CHIP_BG, "border_w": 0.0, "radius": 9.0, "pad_h": 9.0, "pad_v": 4.0,
 	})
-	UI.place(card, mob_chip,
+	UI.place(_card_chip_holder, mob_chip,
 		Vector2(_MAP_SIZE.x - 12.0 - mob_chip.custom_minimum_size.x, 12))
 
 

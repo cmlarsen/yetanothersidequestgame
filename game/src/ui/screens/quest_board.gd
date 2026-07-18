@@ -51,6 +51,13 @@ func build() -> void:
 	var claim := ChunkyButton.make("CLAIM REWARD · %d GOLD" % claim_gold, "cta_green",
 		Vector2(_CARD_W, 50), 16)
 	UI.place(self, claim, Vector2(_CARD_X, 797))
+	claim.pressed.connect(func() -> void:
+		if not GameState.is_live:
+			return
+		for q: Dictionary in GameState.quests:
+			if String(q.get("state", "")) == "claimable":
+				NetClient.send_op(int(ServerProtocol.OP.QUEST_CLAIM),
+					{"questId": String(q["id"])}))
 
 
 func _rebuild(tab: int) -> void:

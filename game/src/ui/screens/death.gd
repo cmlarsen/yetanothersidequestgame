@@ -149,7 +149,12 @@ func _add_respawn_button() -> void:
 		Tokens.white(0.4))
 	penalty.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(penalty)
-	b.pressed.connect(func() -> void: Router.go("home"))
+	b.pressed.connect(func() -> void:
+		if GameState.is_live:
+			# The wire RESPAWN carries no fields today; mode rides as a stripped
+			# forward-compatible extra.
+			NetClient.send_op(int(ServerProtocol.OP.RESPAWN), {"mode": "home"})
+		Router.go("home"))
 
 
 ## Font overrides don't refresh a Label's min size until it enters the tree;

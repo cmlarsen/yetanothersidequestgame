@@ -28,6 +28,15 @@ var paths: Array[Dictionary] = []
 var trees: Array[Vector2] = []
 ## {center: Vector2, radius: float} — water blobs with a lighter rim.
 var water: Array[Dictionary] = []
+## Live-world overlay (additive): per-hex styles keyed by the server's "q,r"
+## axial keys ({fill: Color, stroke: Color, width: float[, dashed…]}); cells
+## win over zones in the same classification pass. Setting px_per_m > 0 swaps
+## the lattice to the flat-top 60 m world grid (Geo frame: x east, y north)
+## projected via  screen = world_offset + (x, −y)·px_per_m;  px_per_m == 0
+## keeps the classic screen-space pointy-top grid byte-identical.
+var cells: Dictionary = {}
+var world_offset := Vector2.ZERO
+var px_per_m := 0.0
 
 
 func _init() -> void:
@@ -114,6 +123,19 @@ func _classify(p: Vector2) -> Dictionary:
 func _draw() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
+	if px_per_m > 0.0:
+		_draw_world_hexes()
+	else:
+		_draw_screen_hexes()
+	for p in paths:
+		_draw_path(p)
+	for w in water:
+		_draw_water(w)
+	for t in trees:
+		_draw_tree(t)
+
+
+func _draw_screen_hexes() -> void:
 	var hw := sqrt(3.0) * hex_radius
 	var vs := 1.5 * hex_radius
 	var draw_r := hex_radius - hex_inset
@@ -126,18 +148,37 @@ func _draw() -> void:
 			_draw_hex(Vector2(cx, cy), draw_r, _classify(Vector2(cx, cy)))
 			col += 1
 		row += 1
-	for p in paths:
-		_draw_path(p)
-	for w in water:
-		_draw_water(w)
-	for t in trees:
-		_draw_tree(t)
 
 
-func _draw_hex(c: Vector2, r: float, cls: Dictionary) -> void:
+## The world lattice pass: every flat-top 60 m hex whose center projects into
+## the viewport, styled by cells first, zones/default second. Corner at 0°
+## (flat-top) vs the decorative grid's −30° (pointy-top).
+func _draw_world_hexes() -> void:
+	var col_w := 1.5 * Geo.HEX_R
+	var row_h := sqrt(3.0) * Geo.HEX_R
+	var draw_r := Geo.HEX_R * px_per_m - hex_inset
+	var wx_min := -world_offset.x / px_per_m
+	var wx_max := (size.x - world_offset.x) / px_per_m
+	var wy_min := (world_offset.y - size.y) / px_per_m
+	var wy_max := world_offset.y / px_per_m
+	var q_min := int(floor(wx_min / col_w)) - 1
+	var q_max := int(ceil(wx_max / col_w)) + 1
+	for q in range(q_min, q_max + 1):
+		var r_min := int(floor(wy_min / row_h - q / 2.0)) - 1
+		var r_max := int(ceil(wy_max / row_h - q / 2.0)) + 1
+		for r in range(r_min, r_max + 1):
+			var w := Geo.hex_center(q, r)
+			var c := world_offset + Vector2(w.x, -w.y) * px_per_m
+			var cls: Dictionary = cells.get(Geo.hex_key(q, r), {})
+			if cls.is_empty():
+				cls = _classify(c)
+			_draw_hex(c, draw_r, cls, 0.0)
+
+
+func _draw_hex(c: Vector2, r: float, cls: Dictionary, corner0_deg: float = -30.0) -> void:
 	var pts := PackedVector2Array()
 	for i in 6:
-		var a := deg_to_rad(60.0 * i - 30.0)
+		var a := deg_to_rad(60.0 * i + corner0_deg)
 		pts.append(c + Vector2(cos(a), sin(a)) * r)
 	var fill: Color = cls["fill"]
 	if fill.a > 0.0:

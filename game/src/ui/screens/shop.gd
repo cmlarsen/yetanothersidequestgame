@@ -29,6 +29,7 @@ var _selected: String = GameState.shop_selected
 var _rings: Dictionary = {}
 var _cta_holder: Control
 var _note_label: Label
+var _gold_label: Label
 var _tab_buttons: Array[BaseButton] = []
 var _tab_rects: Array[ChunkyRect] = []
 var _tab_labels: Array[Label] = []
@@ -42,6 +43,16 @@ func build() -> void:
 	for i in Catalog.SHOP_STOCK.size():
 		_build_card(Catalog.SHOP_STOCK[i], _CARD_POS[i])
 	_build_footer()
+	if GameState.is_live:
+		GameState.live_changed.connect(_on_live_changed)
+
+
+## SHOP_RESULT (and any other gold-moving apply) refreshes the pill + CTA
+## affordability; the stock cards stay Catalog-driven for now.
+func _on_live_changed(what: String) -> void:
+	if what in ["shop", "events", "inventory", "snapshot"]:
+		_gold_label.text = Rules.fmt_thousands(GameState.gold)
+		_update_cta()
 
 
 func _build_header() -> void:
@@ -93,7 +104,8 @@ func _build_tab_bar() -> void:
 	var coin := _coin(20.0, 2.0)
 	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	inner.add_child(coin)
-	inner.add_child(UI.display(Rules.fmt_thousands(GameState.gold), 13, Tokens.GOLD_GRAD_TOP))
+	_gold_label = UI.display(Rules.fmt_thousands(GameState.gold), 13, Tokens.GOLD_GRAD_TOP)
+	inner.add_child(_gold_label)
 	var w := inner.get_combined_minimum_size().x + 24.0
 	pill.position = Vector2(388.0 - w, 176)
 	pill.size = Vector2(w, 32)
@@ -339,6 +351,9 @@ func _update_cta() -> void:
 	var b := ChunkyButton.make("BUY · %s GOLD" % Rules.fmt_thousands(price),
 		"cta_gold" if affordable else "cta_red", Vector2(374, 50), 16)
 	b.disabled = not affordable
+	b.pressed.connect(func() -> void:
+		if GameState.is_live:
+			NetClient.send_op(int(ServerProtocol.OP.BUY), {"itemId": _selected}))
 	_cta_holder.add_child(b)
 
 

@@ -14,6 +14,7 @@ run/main_scene="res://scenes/app.tscn"
 
 GameState="*res://src/data/game_state.gd"
 Router="*res://src/app/router.gd"
+NetClient="*res://src/net/net_client.gd"
 
 [display]
 

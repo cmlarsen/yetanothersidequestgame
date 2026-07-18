@@ -141,7 +141,11 @@ func _build_card() -> void:
 	card.content.add_child(buttons)
 	var attack := ChunkyButton.make("ATTACK", "cta_red", Vector2(0, 44), 14)
 	attack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	attack.pressed.connect(func() -> void: Router.go("combat"))
+	attack.pressed.connect(func() -> void:
+		if GameState.is_live:
+			# No mobId → the server targets the nearest engaged/in-range mob.
+			NetClient.send_op(int(ServerProtocol.OP.ATTACK), {})
+		Router.go("combat"))
 	buttons.add_child(attack)
 	var avoid := ChunkyButton.make("AVOID", "secondary", Vector2(0, 44), 13)
 	avoid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
