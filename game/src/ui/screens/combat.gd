@@ -1,135 +1,66 @@
 extends Screen
-## Chunk 15 "Turf brawl": hexB map, boss plate w/ segmented HP, contested-hex
-## dashed ring + Gloomling blob, ally pins with HP rings, damage floats, bottom
-## gradient scrim and the 5-slot hot bar from GameState.hotbar × Catalog.
+## SCREENS.md §15 "Real-time combat (Turf brawl)". The map is now a real 3D
+## KayKit arena (BattleMap3D) the HUD draws over: boss plate + segmented HP top,
+## bottom scrim + 5-slot hot bar, FLEE. Tap a slot to USE it (lunge + damage
+## float, ticks the boss bar); HOLD a slot opens the Equip drawer — the mock had
+## these swapped, so every action was opening the wrong menu.
 
-# One-off mock colors (not in the token sheet).
-const _OVERLAY_DARK := Color("#101622")  # rgba(16,22,34,·) plates/tags
-const _SCRIM := Color("#0a0e14")  # bottom gradient rgba(10,14,20,.9)
-const _MOB_TAG_BG := Color(20.0 / 255.0, 10.0 / 255.0, 40.0 / 255.0, 0.85)
-const _YOU_TAG_BG := Color("#0e2a33")
+const _OVERLAY_DARK := Color("#101622")
+const _SCRIM := Color("#0a0e14")
 const _PLATE_SHADOW := Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.5)
 const _FLOAT_BIG_SHADOW := Color("#7a4a05")
 const _FLOAT_CRIT_SHADOW := Color("#7a1030")
+const _HEAL_SHADOW := Color("#1c5a2a")
 
-# The mock's slot art diverges from Catalog icons for these two (sword-slash
-# and bolt read better at 24px than the literal hammer/scroll glyphs).
+# The mock's slot art diverges from Catalog icons for these two.
 const _ICON_OVERRIDE := {"bonk_hammer": "sword_slash", "zap_scroll": "bolt"}
 const _ICON_COLOR := {
 	"zap_scroll": Tokens.RARITY_LEGENDARY_TOP,
 	"fizzy_mender": Tokens.PINK_LIGHT,
 }
 
-# Mock hot bar: 52px slots, 8px gap, labels bottom-anchored at 830.
-const _SLOT_SIDE := 52.0
-const _SLOT_SCALE := _SLOT_SIDE / HotBarSlot.SLOT_SIDE
-const _SLOT_TOP := 763.0
-const _SLOT_X0 := 55.0
-const _SLOT_STEP := 60.0
+# Hot bar: native 60px slots, FLEE round button bottom-left.
+const _SLOT_TOP := 770.0
+const _SLOT_X0 := 78.0
+const _SLOT_STEP := 61.0
+const _HOLD_S := 0.35
+const _BOSS_HIT := 0.05  # boss HP ratio removed per damaging tap
 
-# Per-kind damage float styling straight from the chunk's absolute divs.
-const _FLOAT_STYLE := {
-	"big": {"pos": Vector2(246, 352), "size": 26, "rot": -7.0},
-	"normal": {"pos": Vector2(118, 410), "size": 18, "rot": 5.0},
-	"crit": {"pos": Vector2(86, 300), "size": 30, "rot": -4.0},
-}
+var _map: BattleMap3D
+var _boss_bar: SegmentedBar
+var _boss_ratio := 0.58
 
 
 func build() -> void:
 	add_bg(Tokens.MAP_GRASS)
 	_add_map()
-	_add_mob()
-	_add_damage_floats()
-	_add_party_pins()
+	_add_scrim()
 	_add_boss_plate()
 	_add_hot_bar()
+	_add_flee()
 
 
 func _add_map() -> void:
-	# Road + tree blobs sit UNDER the hex lines in the mock SVG, so they are a
-	# separate decor layer rather than HexGridMap.paths/trees (which draw over).
-	var decor := _MapDecor.new()
-	decor.road = _bezier(Vector2(-20, 560), Vector2(100, 520), Vector2(220, 500),
-		Vector2(420, 470), 26)
-	var tree_blobs: Array[Vector3] = [
-		Vector3(70, 300, 16), Vector3(105, 270, 20), Vector3(52, 252, 13),
-	]
-	decor.tree_blobs = tree_blobs
-	UI.place(self, decor, Vector2.ZERO, DESIGN_SIZE)
-	UI.place(self, HexGridMap.preset_b(), Vector2.ZERO, DESIGN_SIZE)
-	var ring := RingPulse.make(73, Tokens.WARNING, 4.0, true)
-	UI.place(self, ring, Vector2(201, 430) - ring.size / 2.0)
+	_boss_ratio = float(GameState.combat.get("boss_hp_ratio", 0.58))
+	_map = BattleMap3D.new()
+	_map.configure(GameState.character_id, String(GameState.combat.get("mob", "grumbleshroom")))
+	UI.place(self, _map, Vector2.ZERO, DESIGN_SIZE)
 
 
-func _add_mob() -> void:
-	var blob := MobBlob.make(84)
-	UI.place(self, blob, Vector2(159, 378))
-	bob(blob)
-	UI.place_centered_x(self, _tag("3D MOB RENDER", Tokens.GLOOM_LIGHT,
-		_MOB_TAG_BG), 466)
-	# Dev navigation until real combat exists: tapping the mob "wins".
-	_nav_button(Rect2(159, 378, 84, 84), "victory")
-
-
-func _add_damage_floats() -> void:
-	for f: Dictionary in GameState.combat.floats:
-		var kind := String(f.get("kind", "normal"))
-		var style: Dictionary = _FLOAT_STYLE[kind]
-		var color := Color.WHITE
-		var shadow := Tokens.white(0.0)
-		match kind:
-			"big":
-				color = Tokens.WARNING
-				shadow = _FLOAT_BIG_SHADOW
-			"normal":
-				shadow = Color(0, 0, 0, 0.4)
-			"crit":
-				color = Tokens.PINK
-				shadow = _FLOAT_CRIT_SHADOW
-		UI.place(self, DamageFloat.make(String(f.text), color, int(style.size),
-			float(style.rot), shadow), Vector2(style.pos))
-
-
-func _add_party_pins() -> void:
-	# Mock pin anchor centers; self is the big bottom-left pin.
-	var centers := {"BRITT": Vector2(308, 330), "MAGEMIKE": Vector2(302, 530)}
-	for member: Dictionary in GameState.party:
-		var is_self := bool(member.get("is_self", false))
-		if is_self:
-			_pin(Vector2(110, 560), String(member.face), 48.0, 54.0,
-				GameState.hp / float(GameState.hp_max), "YOU", true)
-		elif centers.has(member.name):
-			_pin(centers[member.name], String(member.face), 43.0, 48.0,
-				float(member.hp_ratio), String(member.name), false)
-	# Dev navigation: tapping your own pin "dies".
-	_nav_button(Rect2(83, 523, 54, 60), "death")
-
-
-## One map pin: HP-ringed face + name tag, centered on the mock's anchor.
-func _pin(center: Vector2, face: String, diameter: float, box: float,
-		hp: float, tag_text: String, is_self: bool) -> void:
-	var top := center.y - (box + 3.0 + 17.0) / 2.0
-	var avatar := AvatarFace.make(face, diameter, Color.WHITE, 2.5)
-	avatar.set_hp_ring(hp, Tokens.GREEN_GRAD_TOP)
-	UI.place(self, avatar, Vector2(center.x - diameter / 2.0,
-		top + (box - diameter) / 2.0))
-	var tag: Control
-	if is_self:
-		tag = _tag(tag_text, Tokens.CYAN_LIGHT, _YOU_TAG_BG, Tokens.CYAN, 1.5)
-	else:
-		tag = _tag(tag_text, Color.WHITE, Color(_OVERLAY_DARK, 0.85))
-	UI.place(self, tag, Vector2(center.x - tag.custom_minimum_size.x / 2.0,
-		top + box + 3.0))
+func _add_scrim() -> void:
+	var scrim := _Scrim.new()
+	UI.place(self, scrim, Vector2(0, 704), Vector2(DESIGN_SIZE.x, 170))
 
 
 func _add_boss_plate() -> void:
-	var mob: Dictionary = Catalog.mob(String(GameState.combat.mob))
+	var mob: Dictionary = Catalog.mob(String(GameState.combat.get("mob", "grumbleshroom")))
+	if mob.is_empty():
+		return
 	var plate := Control.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.place(self, plate, Vector2(12, 58), Vector2(378, 62))
-	var rect := ChunkyRect.panel(Color(_OVERLAY_DARK, 0.9), 16.0,
-		Tokens.GLOOM_BORDER_ALT, 2.0, _PLATE_SHADOW)
-	UI.fill(plate, rect)
+	UI.fill(plate, ChunkyRect.panel(Color(_OVERLAY_DARK, 0.9), 16.0,
+		Tokens.GLOOM_BORDER_ALT, 2.0, _PLATE_SHADOW))
 	var pad := UI.margin(14, 10)
 	UI.fill(plate, pad)
 	var col := UI.vbox(6)
@@ -139,28 +70,23 @@ func _add_boss_plate() -> void:
 	row.add_child(UI.display(String(mob.name), 15, Tokens.GLOOM_LIGHT))
 	row.add_child(UI.spacer())
 	row.add_child(UI.micro("%s · LV %d" % [mob.title, mob.level], 10, Tokens.white(0.5)))
-	var bar := SegmentedBar.make(350, 16, int(mob.hp_segments),
+	_boss_bar = SegmentedBar.make(350, 16, int(mob.hp_segments),
 		Tokens.RARITY_EPIC_TOP, Tokens.RARITY_EPIC_BOTTOM)
-	bar.set_ratio(float(GameState.combat.boss_hp_ratio))
-	col.add_child(bar)
+	_boss_bar.set_ratio(_boss_ratio)
+	col.add_child(_boss_bar)
 
 
 func _add_hot_bar() -> void:
-	var scrim := _Scrim.new()
-	UI.place(self, scrim, Vector2(0, 704), Vector2(402, 170))
 	for i in Rules.HOTBAR_SLOTS:
 		var entry: Dictionary = GameState.hotbar[i]
 		var x := _SLOT_X0 + i * _SLOT_STEP
-		var label_text := "EMPTY"
-		var label_color := Tokens.SLOT_BORDER
 		var cfg := {}
 		if entry.is_empty():
 			cfg["state"] = "empty"
 		else:
 			var id := String(entry.item)
 			var item: Dictionary = Catalog.item(id)
-			label_text = String(item.name)
-			label_color = Tokens.white(0.65)
+			cfg["label"] = String(item.name)
 			cfg["icon"] = _ICON_OVERRIDE.get(id, String(item.icon))
 			if _ICON_COLOR.has(id):
 				cfg["icon_color"] = _ICON_COLOR[id]
@@ -172,14 +98,85 @@ func _add_hot_bar() -> void:
 			if String(item.slot_type) == "weapon":
 				cfg["glow"] = _rarity_color(String(item.rarity))
 		var slot := HotBarSlot.make(cfg)
-		slot.scale = Vector2(_SLOT_SCALE, _SLOT_SCALE)
 		UI.place(self, slot, Vector2(x, _SLOT_TOP))
-		var label := _measured(UI.micro(label_text, 8, label_color, 0))
-		add_child(label)
-		label.position = Vector2(
-			x + _SLOT_SIDE / 2.0 - label.get_minimum_size().x / 2.0, 819)
-		# Mock gesture is hold-to-swap; the shell simplifies to tap.
-		_nav_button(Rect2(x, _SLOT_TOP, _SLOT_SIDE, 68), "equip_drawer")
+		var btn := _SlotButton.new()
+		UI.place(self, btn, Vector2(x, _SLOT_TOP), Vector2(HotBarSlot.SLOT_SIDE, 78.0))
+		var idx := i
+		btn.tapped.connect(func() -> void: _use_slot(idx))
+		btn.held.connect(func() -> void: _open_equip(idx))
+
+
+func _add_flee() -> void:
+	var btn := BaseButton.new()
+	UI.place(self, btn, Vector2(14, 772), Vector2(54, 54))
+	var ring := ChunkyRect.panel(Color(_OVERLAY_DARK, 0.92), 27.0, Tokens.PINK, 2.0,
+		_PLATE_SHADOW)
+	UI.fill(btn, ring)
+	var label := UI.micro("FLEE", 9, Tokens.PINK_LIGHT, 0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	UI.fill(btn, label)
+	btn.pressed.connect(func() -> void: Router.back())
+
+
+# ── Actions ──────────────────────────────────────────────────────────────────
+
+## Tap: use the slot. Empty → open the drawer to fill it; weapon/spell → strike
+## (lunge + damage float + boss-bar tick); consumable → heal float.
+func _use_slot(i: int) -> void:
+	var entry: Dictionary = GameState.hotbar[i]
+	if entry.is_empty():
+		_open_equip(i)
+		return
+	var item: Dictionary = Catalog.item(String(entry.item))
+	var kind := String(item.get("slot_type", "weapon"))
+	if kind == "consumable":
+		_spawn_float("+HEAL", Tokens.GREEN_GRAD_TOP, 18, 5.0, _HEAL_SHADOW,
+			Vector2(_map.size.x * 0.24, 560.0))
+		return
+	if _map != null:
+		_map.player_attack()
+	var crit := i % 3 == 2
+	var dmg := 30 + i * 9 + (47 if crit else 0)
+	var text := ("CRIT -%d!" % dmg) if crit else ("-%d" % dmg)
+	var color := Tokens.PINK if crit else Tokens.WARNING
+	var shadow := _FLOAT_CRIT_SHADOW if crit else _FLOAT_BIG_SHADOW
+	_spawn_float(text, color, 26 if crit else 22, -6.0 if crit else -4.0, shadow,
+		_map.mob_screen_pos() if _map != null else Vector2(200, 320))
+	_damage_boss()
+
+
+## Hold: open the Equip drawer for this slot (the mock's "hold any slot" gesture).
+func _open_equip(i: int) -> void:
+	GameState.equip_drawer["slot"] = i + 1
+	Router.go("equip_drawer")
+
+
+func _damage_boss() -> void:
+	_boss_ratio = maxf(_boss_ratio - _BOSS_HIT, 0.0)
+	if _boss_bar != null:
+		_boss_bar.set_ratio(_boss_ratio)
+	if _boss_ratio <= 0.0:
+		Router.go("victory")
+
+
+func _spawn_float(text: String, color: Color, font_size: int, rot: float,
+		shadow: Color, at: Vector2) -> void:
+	var f := DamageFloat.make(text, color, font_size, rot, shadow)
+	add_child(f)
+	f.position = at
+	if AppMode.freeze_motion:
+		return
+	f.pivot_offset = Vector2(20, 10)
+	f.scale = Vector2.ZERO
+	var tw := f.create_tween()
+	tw.tween_property(f, "scale", Vector2(1.15, 1.15), 0.14) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(f, "scale", Vector2.ONE, 0.08)
+	tw.parallel().tween_property(f, "position:y", at.y - 46.0, 0.7) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(f, "modulate:a", 0.0, 0.28)
+	tw.tween_callback(f.queue_free)
 
 
 static func _rarity_color(rarity: String) -> Color:
@@ -193,66 +190,37 @@ static func _rarity_color(rarity: String) -> Color:
 	return Tokens.RARITY_COMMON
 
 
-## Font overrides don't refresh a Label's min size until it enters the tree;
-## force the theme pass so pre-layout measurements (centering, pill widths)
-## use the real 8–9px metrics instead of the default 16px ones.
-static func _measured(l: Label) -> Label:
-	l.notification(Control.NOTIFICATION_THEME_CHANGED)
-	return l
+## Distinguishes a tap from a press-and-hold so tap uses the action while hold
+## opens the equip drawer (SCREENS.md §15 "Hold any slot → Equip drawer").
+class _SlotButton:
+	extends BaseButton
 
+	signal tapped
+	signal held
 
-## Mock name-tag pill: micro text, 2px 8px padding, radius 7. Built locally
-## because Chip.make bakes the pre-tree (inflated) label width into its size.
-static func _tag(text: String, text_color: Color, bg: Color,
-		border: Color = Color(0, 0, 0, 0), border_w: float = 0.0) -> Control:
-	var label := _measured(UI.micro(text, 9, text_color, 0))
-	var tag_size := label.get_minimum_size() + Vector2(16, 4)
-	var root := Control.new()
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.custom_minimum_size = tag_size
-	root.size = tag_size
-	UI.fill(root, ChunkyRect.panel(bg, 7.0, border, border_w))
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	UI.fill(root, label)
-	return root
-
-
-func _nav_button(rect: Rect2, route: String) -> void:
-	var b := BaseButton.new()
-	UI.place(self, b, rect.position, rect.size)
-	b.pressed.connect(func() -> void: Router.go(route))
-
-
-static func _bezier(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
-		segments: int) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	for i in segments + 1:
-		out.append(p0.bezier_interpolate(p1, p2, p3, float(i) / segments))
-	return out
-
-
-## Road + tree circles drawn beneath the hex grid (mock layer order).
-class _MapDecor:
-	extends Control
-
-	var road: PackedVector2Array
-	var tree_blobs: Array[Vector3] = []  # x, y, radius
+	var _consumed := false
+	var _gen := 0  # press generation, so a prior tap's timer can't fire a hold
 
 	func _init() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button_down.connect(_on_down)
+		button_up.connect(_on_up)
 
-	func _draw() -> void:
-		if road.size() >= 2:
-			_stroke_round(road, Tokens.MAP_PATH_EDGE, 52.0)
-			_stroke_round(road, Tokens.MAP_PATH, 40.0)
-		for t in tree_blobs:
-			draw_circle(Vector2(t.x, t.y), t.z, Tokens.MAP_TREE)
+	func _on_down() -> void:
+		_consumed = false
+		_gen += 1
+		var g := _gen
+		get_tree().create_timer(_HOLD_S).timeout.connect(
+			func() -> void: _on_hold_elapsed(g))
 
-	func _stroke_round(pts: PackedVector2Array, color: Color, width: float) -> void:
-		draw_polyline(pts, color, width, true)
-		for pt in pts:
-			draw_circle(pt, width / 2.0, color)
+	func _on_hold_elapsed(g: int) -> void:
+		if g == _gen and is_inside_tree() and button_pressed and not _consumed:
+			_consumed = true
+			held.emit()
+
+	func _on_up() -> void:
+		if not _consumed:
+			_consumed = true
+			tapped.emit()
 
 
 ## Bottom gradient: transparent → 90% dark at 70% height, then solid.
